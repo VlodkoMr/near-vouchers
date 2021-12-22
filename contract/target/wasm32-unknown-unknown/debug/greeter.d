@@ -1,1 +1,1 @@
-/Users/vlodkow.mr/www/offline-payment-rust/contract/target/wasm32-unknown-unknown/debug/greeter.wasm: /Users/vlodkow.mr/www/offline-payment-rust/contract/src/lib.rs
+/Users/vlodkow/www/near-vouchers/contract/target/wasm32-unknown-unknown/debug/greeter.wasm: /Users/vlodkow/www/near-vouchers/contract/src/lib.rs

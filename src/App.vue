@@ -1,7 +1,10 @@
 <template>
   <div id="root">
-    <SignedOut v-show="!isSignedIn" />
-    <SignedIn v-show="isSignedIn" />
+    <SignedOut v-show="!isSignedIn"/>
+    <div v-show="isSignedIn">
+      <Vouchers v-show="!isPayment"/>
+      <VoucherPayment v-show="isPayment"/>
+    </div>
   </div>
 </template>
 
@@ -9,7 +12,8 @@
 import "./global.css"
 import getConfig from "./config"
 import SignedOut from "./components/SignedOut.vue"
-import SignedIn from "./components/SignedIn.vue"
+import Vouchers from "./components/Vouchers.vue"
+import VoucherPayment from "./components/VoucherPayment.vue"
 
 const nearConfig = getConfig(process.env.NODE_ENV || "development")
 console.log(
@@ -24,13 +28,17 @@ export default {
   name: "App",
   components: {
     SignedOut,
-    SignedIn,
+    Vouchers,
+    VoucherPayment
   },
 
   computed: {
     isSignedIn() {
       return window.walletConnection.isSignedIn()
     },
+    isPayment() {
+      return false;
+    }
   },
 }
 </script>

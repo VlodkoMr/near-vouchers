@@ -11,12 +11,12 @@
  *
  */
 
-// To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{AccountId, Timestamp};
 use near_sdk::{env, near_bindgen, setup_alloc};
-use near_sdk::collections::{LookupMap, UnorderedMap};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::BorshStorageKey;
+use near_sdk::collections::{LookupMap, UnorderedSet};
+use near_sdk::serde::{Deserialize, Serialize};
 
 setup_alloc!();
 
@@ -29,21 +29,27 @@ pub enum StorageKeys {
     // SubAccount { account_hash: Vec<u8> },
 }
 
-#[derive(BorshDeserialize, BorshSerialize)] //Default, Debug,
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)] // Default, Debug,
+#[serde(crate = "near_sdk::serde")]
 pub struct Voucher {
+    id: String,
     deposit_amount: u128,
     spent_amount: u128,
     // expire_date: Timestamp,
     create_date: Timestamp,
+    hash: String,
 }
+
 
 impl Default for Voucher {
     fn default() -> Self {
         Self {
+            id: String::new(),
             deposit_amount: env::attached_deposit(),
             spent_amount: 0,
             // expire_date: Timestamp,
             create_date: env::block_timestamp(),
+            hash: String::new(),
         }
     }
 }
@@ -52,7 +58,7 @@ impl Default for Voucher {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct VoucherContract {
-    vouchers: LookupMap<AccountId, UnorderedMap<String, Voucher>>,
+    vouchers: LookupMap<AccountId, UnorderedSet<Voucher>>,
 }
 
 impl Default for VoucherContract {
@@ -65,57 +71,33 @@ impl Default for VoucherContract {
 
 #[near_bindgen]
 impl VoucherContract {
-    pub fn all_vouchers(&self) -> Option<UnorderedMap<String, Voucher>> { //Vector<Voucher>
-        self.vouchers.get(&env::current_account_id())
-        // let user_vouchers = match self.vouchers.get(&env::current_account_id()) {
-        //     Some(vouchers) => vouchers,
-        //     None => UnorderedMap::new(StorageKeys::AccountVouchers),
-        // };
-        // // user_vouchers
-        // let mut result: Vector<Voucher> = Vector::new(b"r".to_vec());
-        // for (str, voucher) in user_vouchers.iter() {
-        //     // println!("{:?} = {:?}", voucher, str);
-        //     result.push(&voucher);
-        // }
-        // result
+    pub fn all_vouchers(&self) -> Vec<Voucher> {
+        match self.vouchers.get(&env::current_account_id()) {
+            Some(vouchers) => vouchers.to_vec(),
+            None => vec![],
+        }
     }
 
     #[payable]
-    pub fn add_voucher(&mut self, hash: String) {
-        // if !self.vouchers.contains_key(&env::current_account_id()) {
-        //     let default_data = &UnorderedMap::new(StorageKeys::AccountVouchers);
-        //     self.vouchers.insert(&env::current_account_id(), &default_data);
-        // }
+    pub fn add_voucher(&mut self, hash: String, id: String) {
+        assert!(env::attached_deposit() > 0, "You should attach Deposit");
+        assert_eq!(hash.len(), 64, "Wrong Hash");
+        assert_eq!(id.len(), 12, "Wrong ID");
 
         let mut user_vouchers = match self.vouchers.get(&env::current_account_id()) {
             Some(vouchers) => vouchers,
-            None => UnorderedMap::new(StorageKeys::AccountVouchers),
+            None => UnorderedSet::new(StorageKeys::AccountVouchers),
         };
 
-        user_vouchers.insert(&hash, &Voucher::default());
+        let mut voucher = Voucher::default();
+        voucher.hash = hash;
+        voucher.id = id;
+        user_vouchers.insert(&voucher);
         self.vouchers.insert(&env::current_account_id(), &user_vouchers);
 
         // Promise::new(account_id).transfer(amount);
-
         // println!("{:?}", user_vouchers);
-
-        // let account_id = env::signer_account_id();
-        //
-        // // Use env::log to record logs permanently to the blockchain!
-        // env::log(format!("Saving greeting '{}' for account '{}'", message, account_id, ).as_bytes());
-        //
-        // self.users.insert(&account_id, &message);
     }
-
-    // `match` is similar to `switch` in other languages; here we use it to default to "Hello" if
-    // self.users.get(&account_id) is not yet defined.
-    // Learn more: https://doc.rust-lang.org/book/ch06-02-match.html#matching-with-optiont
-    // pub fn get_greeting(&self, account_id: String) -> String {
-    // match self.users.get(&account_id) {
-    //     Some(greeting) => greeting,
-    //     None => "Hello".to_string(),
-    // }
-    // }
 }
 
 /*
