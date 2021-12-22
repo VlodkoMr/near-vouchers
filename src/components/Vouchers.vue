@@ -52,7 +52,7 @@ import sha256 from 'crypto-js/sha256';
 import QrcodeVue from 'qrcode.vue';
 
 export default {
-  name: "MyVouchers",
+  name: "Vouchers",
   beforeMount() {
     if (this.isSignedIn) {
       if (!localStorage.getItem('app-private-keys')) {

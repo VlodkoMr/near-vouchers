@@ -15,7 +15,8 @@ import SignedOut from "./components/SignedOut.vue"
 import Vouchers from "./components/Vouchers.vue"
 import VoucherPayment from "./components/VoucherPayment.vue"
 
-const nearConfig = getConfig(process.env.NODE_ENV || "development")
+// const nearConfig = getConfig(process.env.NODE_ENV || "development")
+const nearConfig = getConfig("development")
 console.log(
   `networkId:${nearConfig.networkId} CONTRACT_NAME:${nearConfig.contractName}`
 )
@@ -37,7 +38,7 @@ export default {
       return window.walletConnection.isSignedIn()
     },
     isPayment() {
-      return false;
+      return window.location.search.indexOf('user=') !== -1;
     }
   },
 }
