@@ -30,12 +30,26 @@
       <div v-if="is_ready">
         <div v-if="vouchers.length" class="vouchers">
           <div v-for="voucher in vouchers" :key="voucher.id" class="one-voucher">
-            {{ getUrl(voucher.id) }}
             <qrcode-vue :value="getUrl(voucher.id)" :size="300" level="H"/>
+            <input type="hidden" :id="'clone-'+voucher.id" readonly :value="getUrl(voucher.id)"/>
+
+            <p class="text-center">
+              <img src="../assets/delete.png"
+                   alt="remove"
+                   title="remove"
+                   class="small-button remove-voucher"
+                   @click="removeVoucher(voucher.id)">
+              {{ toNearAmount(voucher.spent_amount) }} / {{ toNearAmount(voucher.deposit_amount) }} NEAR
+              <img src="../assets/copy.png"
+                   alt="copy"
+                   title="copy"
+                   class="small-button copy-link"
+                   @click="copyURL(voucher.id)">
+            </p>
           </div>
         </div>
         <div v-if="!vouchers.length" class="text-center">
-          No vouchers
+          *No vouchers
         </div>
       </div>
       <div v-if="!is_ready" class="text-center">
@@ -90,11 +104,16 @@ export default {
     getVouchers() {
       this.is_ready = false;
       window.contract.all_vouchers().then(vouchers => {
-        console.log(vouchers);
-        this.vouchers = vouchers;
+        this.vouchers = [];
+        vouchers.forEach(voucher => {
+          if (this.isValidVoucher(voucher.id)) {
+            this.vouchers.push(voucher);
+          }
+        });
         this.is_ready = true;
       })
     },
+
     async addVoucher() {
       if (this.voucherDeposit > 0) {
         const newId = this.randomStr(12);
@@ -121,10 +140,33 @@ export default {
         alert("Please specify deposit");
       }
     },
+
+    async removeVoucher(id) {
+      console.log('remove', id);
+    },
+
     getUrl(id) {
       let keys = JSON.parse(localStorage.getItem('app-private-keys'));
       return window.location.origin + `/?user=${window.accountId}&id=${id}#${keys[id]}`;
     },
+
+    isValidVoucher(id) {
+      let keys = JSON.parse(localStorage.getItem('app-private-keys'));
+      return keys[id] !== undefined;
+    },
+
+    toNearAmount(value) {
+      return Big(value).div(10 ** 24).toFixed();
+    },
+
+    copyURL(id) {
+      const link = document.querySelector(`#clone-${id}`);
+      link.setAttribute('type', 'text');
+      link.select();
+      document.execCommand("copy");
+      link.setAttribute('type', 'hidden');
+    },
+
     randomStr(length) {
       let result = '';
       const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -134,6 +176,7 @@ export default {
       }
       return result;
     },
+
     logout: logout,
   },
 }

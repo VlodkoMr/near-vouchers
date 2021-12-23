@@ -17,3 +17,24 @@ body {
     max-width: 100%;
     object-fit: contain;
 }
+
+.small-button {
+    width: 20px;
+    margin-top: 3px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity ease .3s;
+}
+
+.small-button:hover {
+    opacity: 1;
+    transition: opacity ease .3s;
+}
+
+.copy-link {
+    float: left;
+}
+
+.remove-voucher {
+    float: right;
+}

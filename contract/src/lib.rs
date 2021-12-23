@@ -98,6 +98,22 @@ impl VoucherContract {
         // Promise::new(account_id).transfer(amount);
         // println!("{:?}", user_vouchers);
     }
+
+    // pub fn remove_voucher(&mut self, id: String) {
+    // let mut vouchers = match self.vouchers.get(&env::current_account_id()) {
+    //     Some(vouchers) => vouchers,
+    //     None => panic!("Voucher not found!"),
+    // };
+    //
+    // for voucher in vouchers.iter() {
+    //     if voucher.id == id {
+    //         // remove_voucher = Some(&voucher);
+    //         vouchers.remove(&voucher);
+    //     }
+    // }
+
+    // return rest amount to user
+    // }
 }
 
 /*
