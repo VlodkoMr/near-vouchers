@@ -35,10 +35,10 @@ pub enum StorageKeys {
 pub struct Voucher {
     id: String,
     deposit_amount: u128,
-    spent_amount: u128,
-    // expire_date: Timestamp,
     create_date: Timestamp,
+    // expire_date: Timestamp,
     hash: String,
+    paid_to_account: Option<AccountId>,
 }
 
 
@@ -47,10 +47,11 @@ impl Default for Voucher {
         Self {
             id: String::new(),
             deposit_amount: env::attached_deposit(),
-            spent_amount: 0,
+            // spent_amount: 0,
             // expire_date: Timestamp,
             create_date: env::block_timestamp(),
             hash: String::new(),
+            paid_to_account: None,
         }
     }
 }
@@ -101,20 +102,52 @@ impl VoucherContract {
     pub fn remove_voucher(&mut self, id: String) {
         let mut vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
             Some(vouchers) => vouchers,
-            None => panic!("Voucher not found!"),
+            None => panic!("Vouchers not found!"),
         };
 
         let selected_voucher = vouchers.iter().find(|v| *v.id == id).unwrap();
 
         // return rest voucher balance to user
-        let rest_amount = selected_voucher.deposit_amount - selected_voucher.spent_amount;
-        if rest_amount > 0 {
-            Promise::new(env::predecessor_account_id()).transfer(rest_amount);
+        if selected_voucher.deposit_amount > 0 {
+            Promise::new(env::predecessor_account_id()).transfer(selected_voucher.deposit_amount);
         }
 
         // remove voucher
         vouchers.remove(&selected_voucher);
         self.vouchers.insert(&env::predecessor_account_id(), &vouchers);
+    }
+
+    pub fn transfer(&mut self, key: String, id: String, account_id: String, pay_amount: String) {
+        assert_eq!(key.len(), 64, "Wrong Hash");
+        assert_eq!(id.len(), 12, "Wrong ID");
+
+        let pay_amount = pay_amount.parse().unwrap();
+        assert!(pay_amount > 0, "Wrong Payment amount");
+
+        let user_vouchers = match self.vouchers.get(&account_id) {
+            Some(vouchers) => vouchers,
+            None => panic!("Vouchers not found!"),
+        };
+
+        let hashed_key = env::sha256(key.as_bytes());
+        let hashed_key_hex = hex::encode(&hashed_key);
+
+        let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("User voucher not found");
+        assert!(voucher.deposit_amount >= pay_amount, "Too big amount for this voucher!");
+
+        // ERROR: double spent
+        assert_eq!(voucher.paid_to_account, None, "Voucher already used!");
+        voucher.paid_to_account = Some(env::predecessor_account_id());
+        self.vouchers.insert(&env::predecessor_account_id(), &user_vouchers);
+        // END ERROR: double spent
+
+        Promise::new(env::predecessor_account_id()).transfer(pay_amount);
+
+        // send rest to owner
+        let rest_amount = voucher.deposit_amount - pay_amount;
+        if rest_amount > 0 {
+            Promise::new(account_id).transfer(rest_amount);
+        }
     }
 }
 

@@ -30,19 +30,26 @@
 
 <script>
 import {logout} from "../utils";
+import Big from 'big.js';
 
 export default {
   name: "VoucherPayment",
   beforeMount() {
     if (this.isSignedIn) {
-      console.log('...')
+      this.key = window.location.hash.replace('#', '');
+      const urlParams = new URLSearchParams(window.location.search);
+      this.id = urlParams.get("id");
+      this.userId = urlParams.get("user");
     }
   },
   components: {},
   data: function () {
     return {
       is_ready: false,
-      paymentAmount: null
+      paymentAmount: null,
+      key: "",
+      id: "",
+      userId: "",
     }
   },
   computed: {
@@ -60,9 +67,24 @@ export default {
     },
   },
   methods: {
-    transfer() {
-      console.log('!')
+    async transfer() {
+      const pay_amount = Big(this.paymentAmount).times(10 ** 24).toFixed();
+      try {
+        await window.contract.transfer({
+          key: this.key,
+          id: this.id,
+          account_id: this.userId,
+          pay_amount,
+        });
+      } catch (e) {
+        alert("Something went wrong!");
+        throw e //re-throw
+      } finally {
+        console.log('transferred');
+        this.getVouchers();
+      }
     },
+
     logout: logout,
   },
 }

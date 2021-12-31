@@ -39,7 +39,7 @@
                    title="remove"
                    class="small-button remove-voucher"
                    @click="removeVoucher(voucher.id)">
-              {{ toNearAmount(voucher.spent_amount) }} / {{ toNearAmount(voucher.deposit_amount) }} NEAR
+              {{ toNearAmount(voucher.deposit_amount) }} NEAR
               <img src="../assets/copy.png"
                    alt="copy"
                    title="copy"
@@ -118,8 +118,8 @@ export default {
 
     async addVoucher() {
       if (this.voucherDeposit > 0) {
-        const newId = this.randomStr(12);
         let keys = JSON.parse(localStorage.getItem('app-private-keys'));
+        const newId = this.randomStr(12);
         keys[newId] = this.randomStr(64);
         localStorage.setItem('app-private-keys', JSON.stringify(keys));
 
@@ -144,7 +144,6 @@ export default {
     },
 
     async removeVoucher(id) {
-      console.log('remove', id);
       try {
         await window.contract.remove_voucher({
           id,
