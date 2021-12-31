@@ -36,9 +36,10 @@ pub struct Voucher {
     id: String,
     deposit_amount: u128,
     create_date: Timestamp,
-    // expire_date: Timestamp,
+    expire_date: Option<Timestamp>,
     hash: String,
-    paid_to_account: Option<AccountId>,
+    is_used: bool,
+    used_by: AccountId,
 }
 
 
@@ -47,11 +48,11 @@ impl Default for Voucher {
         Self {
             id: String::new(),
             deposit_amount: env::attached_deposit(),
-            // spent_amount: 0,
-            // expire_date: Timestamp,
             create_date: env::block_timestamp(),
+            expire_date: None,
             hash: String::new(),
-            paid_to_account: None,
+            used_by: String::new(),
+            is_used: false,
         }
     }
 }
@@ -81,7 +82,7 @@ impl VoucherContract {
     }
 
     #[payable]
-    pub fn add_voucher(&mut self, hash: String, id: String) {
+    pub fn add_voucher(&mut self, hash: String, id: String, expire_date: Option<Timestamp>) {
         assert!(env::attached_deposit() > 0, "You should attach Deposit");
         assert_eq!(hash.len(), 64, "Wrong Hash");
         assert_eq!(id.len(), 12, "Wrong ID");
@@ -94,6 +95,7 @@ impl VoucherContract {
         user_vouchers.insert(&Voucher {
             hash,
             id,
+            expire_date,
             ..Voucher::default()
         });
         self.vouchers.insert(&env::predecessor_account_id(), &user_vouchers);
@@ -134,12 +136,16 @@ impl VoucherContract {
 
         let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("User voucher not found");
         assert!(voucher.deposit_amount >= pay_amount, "Too big amount for this voucher!");
+        match self.vouchers.get(&account_id) {
+            Some(vouchers) => vouchers,
+            None => panic!("Vouchers not found!"),
+        };
 
-        // ERROR: double spent
-        assert_eq!(voucher.paid_to_account, None, "Voucher already used!");
-        voucher.paid_to_account = Some(env::predecessor_account_id());
-        self.vouchers.insert(&env::predecessor_account_id(), &user_vouchers);
-        // END ERROR: double spent
+        assert_eq!(voucher.used_by.len(), 0, "Voucher already used 1 !");
+        assert_eq!(voucher.is_used, false, "Voucher already used 2 !");
+        voucher.used_by = env::predecessor_account_id().clone();
+        voucher.is_used = true;
+        self.vouchers.insert(&account_id, &user_vouchers);
 
         Promise::new(env::predecessor_account_id()).transfer(pay_amount);
 
