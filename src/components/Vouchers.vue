@@ -103,7 +103,9 @@ export default {
   methods: {
     getVouchers() {
       this.is_ready = false;
-      window.contract.all_vouchers().then(vouchers => {
+      window.contract.user_vouchers({
+        'account_id': window.accountId
+      }).then(vouchers => {
         this.vouchers = [];
         vouchers.forEach(voucher => {
           if (this.isValidVoucher(voucher.id)) {
@@ -143,6 +145,17 @@ export default {
 
     async removeVoucher(id) {
       console.log('remove', id);
+      try {
+        await window.contract.remove_voucher({
+          id,
+        });
+      } catch (e) {
+        alert("Something went wrong!");
+        throw e //re-throw
+      } finally {
+        console.log('removed');
+        this.getVouchers();
+      }
     },
 
     getUrl(id) {
