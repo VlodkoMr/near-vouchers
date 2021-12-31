@@ -31,6 +31,7 @@
         <div v-if="vouchers.length" class="vouchers">
           <div v-for="voucher in vouchers" :key="voucher.id" class="one-voucher" :class="{'is-used':voucher.used_by}">
             <span class="used-label" v-if="voucher.used_by">USED by {{ voucher.used_by }}</span>
+            <span class="used-label" v-if="voucher.is_used">IS USED</span>
             <qrcode-vue :value="getUrl(voucher.id)" :size="300" level="H"/>
             <input type="hidden" :id="'clone-'+voucher.id" readonly :value="getUrl(voucher.id)"/>
 

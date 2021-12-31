@@ -141,6 +141,7 @@ impl VoucherContract {
             None => panic!("Vouchers not found!"),
         };
 
+        // TODO: FIX double spend
         assert_eq!(voucher.used_by.len(), 0, "Voucher already used 1 !");
         assert_eq!(voucher.is_used, false, "Voucher already used 2 !");
         voucher.used_by = env::predecessor_account_id().clone();
