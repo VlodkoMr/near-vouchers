@@ -1,14 +1,9 @@
 <template>
   <main>
-    <header class="pt-3 mb-4">
-      <div class="container d-flex justify-content-between">
-        <span>{{ accountId }}</span>
-        <button class="btn btn-primary" v-on:click="logout">Sign out</button>
-      </div>
-    </header>
+    <Header></Header>
 
     <div class="container">
-      <h1 class="text-center">Payment</h1>
+      <h1 class="text-center">Payment Request</h1>
 
       <b-row class="text-center mt-3">
         <b-col></b-col>
@@ -29,8 +24,8 @@
 </template>
 
 <script>
-import {logout} from "../utils";
 import Big from 'big.js';
+import Header from './Header';
 
 export default {
   name: "VoucherPayment",
@@ -42,7 +37,9 @@ export default {
       this.userId = urlParams.get("user");
     }
   },
-  components: {},
+  components: {
+    Header,
+  },
   data: function () {
     return {
       is_ready: false,
@@ -56,15 +53,15 @@ export default {
     isSignedIn() {
       return window.walletConnection ? window.walletConnection.isSignedIn() : false
     },
-    accountId() {
-      return window.accountId
-    },
-    contractId() {
-      return window.contract ? window.contract.contractId : null
-    },
-    networkId() {
-      return window.networkId
-    },
+    // accountId() {
+    //   return window.accountId
+    // },
+    // contractId() {
+    //   return window.contract ? window.contract.contractId : null
+    // },
+    // networkId() {
+    //   return window.networkId
+    // },
   },
   methods: {
     async transfer() {
@@ -81,11 +78,8 @@ export default {
         throw e //re-throw
       } finally {
         console.log('transferred');
-        this.getVouchers();
       }
     },
-
-    logout: logout,
   },
 }
 </script>

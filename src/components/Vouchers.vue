@@ -1,57 +1,73 @@
 <template>
   <main>
-    <header class="pt-3 mb-4">
-      <div class="container d-flex justify-content-between">
-        <span>{{ accountId }}</span>
-        <button class="btn btn-primary" v-on:click="logout">Sign out</button>
-      </div>
-    </header>
+    <Header></Header>
 
-    <div class="container">
-      <h1 class="text-center">My Vouchers</h1>
-
-      <b-row class="text-center mt-3">
-        <b-col></b-col>
-        <b-col lg="3" md="5">
-          <form @submit.prevent="addVoucher">
-            <b-input-group>
-              <b-form-input type="number" required min="0.1" max="10" step="0.1" v-model="voucherDeposit"></b-form-input>
-              <b-input-group-append>
-                <b-button variant="primary" type="submit">Add Voucher</b-button>
-              </b-input-group-append>
-            </b-input-group>
-          </form>
-        </b-col>
-        <b-col></b-col>
-      </b-row>
-
-      <hr>
+    <div class="container-lg">
+      <h2 class="text-center mb-5">My Payment Vouchers</h2>
 
       <div v-if="is_ready">
-        <div v-if="vouchers.length" class="vouchers">
-          <div v-for="voucher in vouchers" :key="voucher.id" class="one-voucher" :class="{'is-used':voucher.used_by}">
-            <span class="used-label" v-if="voucher.used_by">USED by {{ voucher.used_by }}</span>
-            <span class="used-label" v-if="voucher.is_used">IS USED</span>
-            <qrcode-vue :value="getUrl(voucher.id)" :size="300" level="H"/>
-            <input type="hidden" :id="'clone-'+voucher.id" readonly :value="getUrl(voucher.id)"/>
+        <p v-if="!vouchers.length" class="text-center">
+          <b>You don't have vouchers, please create new one:</b>
+        </p>
+        <div :class="{'vouchers': vouchers.length, 'no-vouchers': !vouchers.length}">
+          <div v-for="voucher in vouchers" :key="voucher.id" class="one-voucher" :class="{
+            'is-used': voucher.used_by,
+            'is-expired': isExpired(voucher.expire_date),
+          }">
+            <div class="additional-border"></div>
+            <div class="voucher-inner">
+              <div class="canvas text-center">
+                <qrcode-vue :value="getUrl(voucher.id)" :size="220" level="H"/>
+              </div>
+              <div class="gift-shadow"></div>
+              <div class="gift-vertical">
+                <img src="../assets/bn-1.svg" alt="">
+              </div>
+              <div class="black-bg">
+                <input type="hidden" :id="'clone-'+voucher.id" readonly :value="getUrl(voucher.id)"/>
+                <img src="../assets/delete.png"
+                     alt="remove"
+                     title="remove"
+                     class="small-button remove-voucher"
+                     @click="removeVoucher(voucher.id)">
 
-            <p class="text-center">
-              <img src="../assets/delete.png"
-                   alt="remove"
-                   title="remove"
-                   class="small-button remove-voucher"
-                   @click="removeVoucher(voucher.id)">
-              {{ toNearAmount(voucher.deposit_amount) }} NEAR
-              <img src="../assets/copy.png"
-                   alt="copy"
-                   title="copy"
-                   class="small-button copy-link"
-                   @click="copyURL(voucher.id)">
-            </p>
+                <h4 class="text-center near-amount">
+                  <span :class="{'is-used': voucher.used_by}">{{ toNearAmount(voucher.deposit_amount) }} NEAR</span>
+                  <small class="used-label" v-if="voucher.expire_date">Expire: {{ dateFormat(voucher.expire_date) }}</small>
+                  <small class="used-label" v-if="voucher.used_by">Used by {{ voucher.used_by }}</small>
+                </h4>
+
+                <div class="copy" @click="copyURL(voucher.id)">
+                  <img src="../assets/copy.png"
+                       alt="copy"
+                       title="copy">
+                  Copy URL
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-        <div v-if="!vouchers.length" class="text-center">
-          *No vouchers
+
+          <div class="one-voucher">
+            <form @submit.prevent="addVoucher" class="row">
+              <div class="col-6 offset-3">
+                <div class="additional-border"></div>
+                <h4 class="text-center text-uppercase mb-3">
+                  New Voucher
+                </h4>
+                <div class="mb-3">
+                  <label class="form-check-label mb-1">Expire Date</label>
+                  <b-form-input type="date" placeholder="Expire date" v-model="voucherExpire"></b-form-input>
+                </div>
+                <label class="form-check-label mb-1">NEAR Amount<sup>*</sup></label>
+                <b-input-group>
+                  <b-form-input type="number" required min="0.1" max="10" step="0.1" v-model="voucherDeposit"></b-form-input>
+                  <b-input-group-append>
+                    <b-button variant="primary" type="submit">ADD</b-button>
+                  </b-input-group-append>
+                </b-input-group>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
       <div v-if="!is_ready" class="text-center">
@@ -62,10 +78,10 @@
 </template>
 
 <script>
-import {logout} from "../utils";
 import Big from "big.js";
 import sha256 from 'crypto-js/sha256';
 import QrcodeVue from 'qrcode.vue';
+import Header from "./Header";
 
 export default {
   name: "Vouchers",
@@ -80,26 +96,19 @@ export default {
   },
   components: {
     QrcodeVue,
+    Header,
   },
   data: function () {
     return {
       is_ready: false,
       voucherDeposit: null,
+      voucherExpire: null,
       vouchers: [],
     }
   },
   computed: {
     isSignedIn() {
       return window.walletConnection ? window.walletConnection.isSignedIn() : false
-    },
-    accountId() {
-      return window.accountId
-    },
-    contractId() {
-      return window.contract ? window.contract.contractId : null
-    },
-    networkId() {
-      return window.networkId
     },
   },
   methods: {
@@ -120,6 +129,11 @@ export default {
 
     async addVoucher() {
       if (this.voucherDeposit > 0) {
+        let expire_date = null;
+        if (this.voucherExpire) {
+          // convert date to blockchain timestamp
+          expire_date = Date.parse(this.voucherExpire) * 1000000;
+        }
         let keys = JSON.parse(localStorage.getItem('app-private-keys'));
         const newId = this.randomStr(12);
         keys[newId] = this.randomStr(64);
@@ -131,7 +145,8 @@ export default {
         try {
           await window.contract.add_voucher({
             id: newId,
-            hash: hash,
+            hash,
+            expire_date
           }, GAS, DEPOSIT);
         } catch (e) {
           alert("Something went wrong!");
@@ -146,16 +161,16 @@ export default {
     },
 
     async removeVoucher(id) {
-      try {
-        await window.contract.remove_voucher({
-          id,
-        });
-      } catch (e) {
-        alert("Something went wrong!");
-        throw e //re-throw
-      } finally {
-        console.log('removed');
-        this.getVouchers();
+      if (confirm("Please confirm voucher removing. The balance will be refunded to your wallet.")) {
+        try {
+          await window.contract.remove_voucher({id});
+        } catch (e) {
+          alert("Something went wrong!");
+          throw e //re-throw
+        } finally {
+          console.log('removed');
+          this.getVouchers();
+        }
       }
     },
 
@@ -191,7 +206,17 @@ export default {
       return result;
     },
 
-    logout: logout,
+    dateFormat(timestamp) {
+      const date = new Date(timestamp / 1000000);
+      return new Intl.DateTimeFormat().format(date);
+    },
+
+    isExpired(timestamp) {
+      if (timestamp) {
+        const date = new Date(timestamp / 1000000);
+        return new Date() > date;
+      }
+    },
   },
 }
 </script>

@@ -12,7 +12,7 @@
  */
 
 use near_sdk::{AccountId, Promise, Timestamp};
-use near_sdk::{env, near_bindgen, setup_alloc};
+use near_sdk::{env, log, near_bindgen, setup_alloc};
 //log,
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::BorshStorageKey;
@@ -20,6 +20,8 @@ use near_sdk::collections::{LookupMap, UnorderedSet};
 use near_sdk::serde::{Deserialize, Serialize};
 
 setup_alloc!();
+
+const MAX_DEPOSIT: u128 = 10_000_000_000_000_000_000_000_000;
 
 // Structs in Rust are similar to other languages, and may include impl keyword as shown below
 // Note: the names of the structs are not important when calling the smart contract, but the function names are
@@ -35,11 +37,11 @@ pub enum StorageKeys {
 pub struct Voucher {
     id: String,
     deposit_amount: u128,
+    paid_amount: u128,
     create_date: Timestamp,
     expire_date: Option<Timestamp>,
     hash: String,
-    is_used: bool,
-    used_by: AccountId,
+    used_by: Option<AccountId>,
 }
 
 
@@ -48,11 +50,11 @@ impl Default for Voucher {
         Self {
             id: String::new(),
             deposit_amount: env::attached_deposit(),
+            paid_amount: 0,
             create_date: env::block_timestamp(),
             expire_date: None,
             hash: String::new(),
-            used_by: String::new(),
-            is_used: false,
+            used_by: None,
         }
     }
 }
@@ -83,9 +85,10 @@ impl VoucherContract {
 
     #[payable]
     pub fn add_voucher(&mut self, hash: String, id: String, expire_date: Option<Timestamp>) {
-        assert!(env::attached_deposit() > 0, "You should attach Deposit");
-        assert_eq!(hash.len(), 64, "Wrong Hash");
-        assert_eq!(id.len(), 12, "Wrong ID");
+        assert!(env::attached_deposit() > 0, "You should attach some Deposit");
+        assert!(env::attached_deposit() <= MAX_DEPOSIT, "Please attach less than 10 NEAR");
+        assert_eq!(hash.len(), 64, "Wrong Hash value");
+        assert_eq!(id.len(), 12, "Wrong ID value");
 
         let mut user_vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
             Some(vouchers) => vouchers,
@@ -102,55 +105,63 @@ impl VoucherContract {
     }
 
     pub fn remove_voucher(&mut self, id: String) {
-        let mut vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
+        let mut user_vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
             Some(vouchers) => vouchers,
-            None => panic!("Vouchers not found!"),
+            None => panic!("User vouchers not found"),
         };
 
-        let selected_voucher = vouchers.iter().find(|v| *v.id == id).unwrap();
+        let voucher = user_vouchers.iter().find(|v| *v.id == id).unwrap();
 
-        // return rest voucher balance to user
-        if selected_voucher.deposit_amount > 0 {
-            Promise::new(env::predecessor_account_id()).transfer(selected_voucher.deposit_amount);
+        // Return voucher balance to the owner (if there was no payments)
+        if voucher.used_by.is_none() {
+            Promise::new(env::predecessor_account_id()).transfer(voucher.deposit_amount);
         }
 
-        // remove voucher
-        vouchers.remove(&selected_voucher);
-        self.vouchers.insert(&env::predecessor_account_id(), &vouchers);
+        // Remove voucher
+        user_vouchers.remove(&voucher);
+        self.vouchers.insert(&env::predecessor_account_id(), &user_vouchers);
     }
 
     pub fn transfer(&mut self, key: String, id: String, account_id: String, pay_amount: String) {
-        assert_eq!(key.len(), 64, "Wrong Hash");
-        assert_eq!(id.len(), 12, "Wrong ID");
-
         let pay_amount = pay_amount.parse().unwrap();
+        assert_eq!(key.len(), 64, "Wrong Hash value");
+        assert_eq!(id.len(), 12, "Wrong ID value");
         assert!(pay_amount > 0, "Wrong Payment amount");
 
-        let user_vouchers = match self.vouchers.get(&account_id) {
+        // Get all user vouchers
+        let mut user_vouchers = match self.vouchers.get(&account_id) {
             Some(vouchers) => vouchers,
-            None => panic!("Vouchers not found!"),
+            None => panic!("Voucher not found!"),
         };
 
+        // Get voucher by hash
         let hashed_key = env::sha256(key.as_bytes());
         let hashed_key_hex = hex::encode(&hashed_key);
+        let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("Voucher not found");
 
-        let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("User voucher not found");
-        assert!(voucher.deposit_amount >= pay_amount, "Too big amount for this voucher!");
-        match self.vouchers.get(&account_id) {
-            Some(vouchers) => vouchers,
-            None => panic!("Vouchers not found!"),
+        // Check voucher payment ability
+        assert!(voucher.used_by.is_none(), "Voucher already used");
+        assert!(voucher.deposit_amount >= pay_amount, "Can't get this amount from the voucher");
+        log!("timestamp: {:?} ", voucher.expire_date);
+        log!("block_timestamp: {}",env::block_timestamp());
+        match voucher.expire_date {
+            Some(timestamp) => assert!(timestamp >= env::block_timestamp(), "Voucher expired"),
+            None => (),
         };
 
-        // TODO: FIX double spend
-        assert_eq!(voucher.used_by.len(), 0, "Voucher already used 1 !");
-        assert_eq!(voucher.is_used, false, "Voucher already used 2 !");
-        voucher.used_by = env::predecessor_account_id().clone();
-        voucher.is_used = true;
+        // Remove previous voucher
+        user_vouchers.remove(&voucher);
+
+        // Add updated voucher
+        voucher.used_by = Some(env::predecessor_account_id());
+        voucher.paid_amount = pay_amount;
+        user_vouchers.insert(&voucher);
         self.vouchers.insert(&account_id, &user_vouchers);
 
+        // Send payment
         Promise::new(env::predecessor_account_id()).transfer(pay_amount);
 
-        // send rest to owner
+        // Send rest balance to the owner
         let rest_amount = voucher.deposit_amount - pay_amount;
         if rest_amount > 0 {
             Promise::new(account_id).transfer(rest_amount);

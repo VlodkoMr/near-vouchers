@@ -17,7 +17,7 @@
     "test:web": "vue-cli-service test:unit",
     "test:contract": "cd contract && cargo test -- --nocapture",
     "test": "npm run build:contract:debug && cd contract && cargo test -- --nocapture && cd .. && vue-cli-service test:unit",
-    "serve": "node copy-dev-account.js && vue-cli-service serve",
+    "serve": "node copy-dev-account.js && vue-cli-service serve --open",
     "lint": "eslint . --ext .js --ext .vue --fix"
   },
   "dependencies": {
