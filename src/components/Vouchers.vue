@@ -32,9 +32,15 @@
                      @click="removeVoucher(voucher.id)">
 
                 <h4 class="text-center near-amount">
-                  <span :class="{'is-used': voucher.used_by}">{{ toNearAmount(voucher.deposit_amount) }} NEAR</span>
-                  <small class="used-label" v-if="voucher.expire_date">Expire: {{ dateFormat(voucher.expire_date) }}</small>
-                  <small class="used-label" v-if="voucher.used_by">Used by {{ voucher.used_by }}</small>
+                  <span :class="{'is-used': voucher.used_by}">
+                    {{ toNearAmount(voucher.deposit_amount) }} NEAR
+                  </span>
+                  <small class="used-label" v-if="!voucher.used_by && voucher.expire_date">
+                    Expire: {{ dateFormat(voucher.expire_date) }}
+                  </small>
+
+                  <small class="used-label" v-if="voucher.used_by">Used By: {{ voucher.used_by }}</small>
+                  <small class="used-label" v-if="voucher.paid_amount">Paid: {{ toNearAmount(voucher.paid_amount) }} NEAR</small>
                 </h4>
 
                 <div class="copy" @click="copyURL(voucher.id)">
