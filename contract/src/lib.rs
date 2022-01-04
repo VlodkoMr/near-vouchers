@@ -216,13 +216,15 @@ mod tests {
         testing_env!(context);
 
         let mut contract = VoucherContract::default();
-        assert_eq!(contract.all_vouchers().len(), 0);
+        assert_eq!(contract.user_vouchers(contract.predecessor_account_id).len(), 0);
 
-        // let hash = String::from("1");
-        // let id = String::from("1");
-        // contract.add_voucher(hash, id);
+        contract.attached_deposit = 1;
+        let hash = String::from("1");
+        let id = String::from("1");
+        contract.add_voucher(hash, id, None);
 
-        assert_eq!(contract.all_vouchers().len(), 1);
+        contract.attached_deposit = 0;
+        assert_eq!(contract.user_vouchers(contract.predecessor_account_id).len(), 1);
     }
 }
 
