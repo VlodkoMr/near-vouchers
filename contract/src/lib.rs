@@ -188,8 +188,6 @@ mod tests {
     use near_sdk::{testing_env, VMContext};
     use near_sdk::MockedBlockchain;
     use near_sdk::test_utils::VMContextBuilder;
-    use rand::{Rng, thread_rng};
-    use rand::distributions::Alphanumeric;
 
     use super::*;
 
@@ -209,7 +207,7 @@ mod tests {
         let mut contract = VoucherContract::default();
 
         let id = String::from("123456789012");
-        let private_key: String = thread_rng().sample_iter(&Alphanumeric).take(64).map(char::from).collect();
+        let private_key: String = String::from("x".repeat(64));
         let hashed_key = env::sha256(private_key.as_bytes());
         let hash = hex::encode(&hashed_key);
         contract.add_voucher(hash.clone(), id.clone(), expire_date);
