@@ -1,19 +1,5 @@
-/*
- * This is an example of a Rust smart contract with two simple, symmetric functions:
- *
- * 1. set_greeting: accepts a greeting, such as "howdy", and records it for the user (account_id)
- *    who sent the request
- * 2. get_greeting: accepts an account_id and returns the greeting saved for it, defaulting to
- *    "Hello"
- *
- * Learn more about writing NEAR smart contracts with Rust:
- * https://github.com/near/near-sdk-rs
- *
- */
-
 use near_sdk::{AccountId, Promise, Timestamp};
 use near_sdk::{env, log, near_bindgen, setup_alloc};
-//log,
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::BorshStorageKey;
 use near_sdk::collections::{LookupMap, UnorderedSet};
@@ -23,16 +9,13 @@ setup_alloc!();
 
 const MAX_DEPOSIT: u128 = 10_000_000_000_000_000_000_000_000;
 
-// Structs in Rust are similar to other languages, and may include impl keyword as shown below
-// Note: the names of the structs are not important when calling the smart contract, but the function names are
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
     Vouchers,
     AccountVouchers,
-    // SubAccount { account_hash: Vec<u8> },
 }
 
-#[derive(Debug, Serialize, Deserialize, BorshDeserialize, BorshSerialize)] // Default, Debug,
+#[derive(Debug, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Voucher {
     id: String,
@@ -43,7 +26,6 @@ pub struct Voucher {
     hash: String,
     used_by: Option<AccountId>,
 }
-
 
 impl Default for Voucher {
     fn default() -> Self {
@@ -58,7 +40,6 @@ impl Default for Voucher {
         }
     }
 }
-
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
