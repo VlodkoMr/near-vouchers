@@ -1,9 +1,7 @@
 import {connect, Contract, keyStores, WalletConnection} from 'near-api-js'
 import getConfig from './config'
 
-const nearConfig = getConfig(process.env.NODE_ENV || 'development')
-
-console.log(nearConfig)
+const nearConfig = getConfig('development')
 
 // Initialize contract & set global variables
 export async function initContract() {
@@ -27,8 +25,6 @@ export async function initContract() {
 }
 
 export function logout() {
-  console.log('logout');
-
   window.walletConnection.signOut()
   // reload page
   window.location.replace(window.location.origin + window.location.pathname)
