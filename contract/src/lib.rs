@@ -1,19 +1,5 @@
-/*
- * This is an example of a Rust smart contract with two simple, symmetric functions:
- *
- * 1. set_greeting: accepts a greeting, such as "howdy", and records it for the user (account_id)
- *    who sent the request
- * 2. get_greeting: accepts an account_id and returns the greeting saved for it, defaulting to
- *    "Hello"
- *
- * Learn more about writing NEAR smart contracts with Rust:
- * https://github.com/near/near-sdk-rs
- *
- */
-
 use near_sdk::{AccountId, Promise, Timestamp};
 use near_sdk::{env, log, near_bindgen, setup_alloc};
-//log,
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::BorshStorageKey;
 use near_sdk::collections::{LookupMap, UnorderedSet};
@@ -23,16 +9,13 @@ setup_alloc!();
 
 const MAX_DEPOSIT: u128 = 10_000_000_000_000_000_000_000_000;
 
-// Structs in Rust are similar to other languages, and may include impl keyword as shown below
-// Note: the names of the structs are not important when calling the smart contract, but the function names are
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
     Vouchers,
     AccountVouchers,
-    // SubAccount { account_hash: Vec<u8> },
 }
 
-#[derive(Debug, Serialize, Deserialize, BorshDeserialize, BorshSerialize)] // Default, Debug,
+#[derive(Debug, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Voucher {
     id: String,
@@ -43,7 +26,6 @@ pub struct Voucher {
     hash: String,
     used_by: Option<AccountId>,
 }
-
 
 impl Default for Voucher {
     fn default() -> Self {
@@ -58,7 +40,6 @@ impl Default for Voucher {
         }
     }
 }
-
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -183,48 +164,102 @@ impl VoucherContract {
  */
 #[cfg(test)]
 mod tests {
+    use std::convert::TryInto;
+
     use near_sdk::{testing_env, VMContext};
     use near_sdk::MockedBlockchain;
+    use near_sdk::test_utils::VMContextBuilder;
 
     use super::*;
 
-    // mock the context for testing, notice "signer_account_id" that was accessed above from env::
-    fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
-        VMContext {
-            current_account_id: "alice_near".to_string(),
-            signer_account_id: "bob_near".to_string(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: "carol_near".to_string(),
-            input,
-            block_index: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 0,
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
-            random_seed: vec![0, 1, 2],
-            is_view,
-            output_data_receivers: vec![],
-            epoch_height: 19,
-        }
+    fn get_context(is_view: bool) -> VMContext {
+        VMContextBuilder::new()
+            .signer_account_id("bob_near".try_into().unwrap())
+            .block_timestamp(99)
+            .is_view(is_view)
+            .build()
     }
+
+    fn _add_voucher_internal(expire_date: Option<Timestamp>) -> (String, String) {
+        let mut context = get_context(false);
+        context.attached_deposit = 10;
+        testing_env!(context.clone());
+
+        let mut contract = VoucherContract::default();
+
+        let id = String::from("123456789012");
+        let private_key: String = String::from("x".repeat(64));
+        let hashed_key = env::sha256(private_key.as_bytes());
+        let hash = hex::encode(&hashed_key);
+        contract.add_voucher(hash.clone(), id.clone(), expire_date);
+        (private_key, id)
+    }
+
 
     #[test]
     fn get_all_vouchers() {
-        let context = get_context(vec![], false);
-        testing_env!(context);
+        let context = get_context(true);
+        testing_env!(context.clone());
+
+        let contract = VoucherContract::default();
+        assert_eq!(contract.user_vouchers(context.predecessor_account_id).len(), 0);
+    }
+
+    #[test]
+    fn add_voucher() {
+        let context = get_context(false);
+        testing_env!(context.clone());
+
+        let contract = VoucherContract::default();
+        _add_voucher_internal(None);
+        _add_voucher_internal(None);
+        assert_eq!(contract.user_vouchers(context.predecessor_account_id).len(), 2);
+    }
+
+    #[test]
+    fn remove_voucher() {
+        let context = get_context(false);
+        testing_env!(context.clone());
 
         let mut contract = VoucherContract::default();
-        assert_eq!(contract.user_vouchers(contract.predecessor_account_id).len(), 0);
+        let (_, id) = _add_voucher_internal(None);
+        contract.remove_voucher(id);
 
-        contract.attached_deposit = 1;
-        let hash = String::from("1");
-        let id = String::from("1");
-        contract.add_voucher(hash, id, None);
+        assert_eq!(contract.user_vouchers(context.predecessor_account_id).len(), 0);
+    }
 
-        contract.attached_deposit = 0;
-        assert_eq!(contract.user_vouchers(contract.predecessor_account_id).len(), 1);
+    #[test]
+    fn transfer() {
+        let context = get_context(false);
+        testing_env!(context.clone());
+
+        let mut contract = VoucherContract::default();
+        let (private_key, id) = _add_voucher_internal(None);
+        let predecessor = context.predecessor_account_id;
+
+        contract.transfer(private_key, id, predecessor.clone(), String::from("1"));
+
+        let voucher = contract.user_vouchers(predecessor.clone());
+        assert_eq!(voucher.len(), 1, "Voucher not found");
+        assert_eq!(voucher[0].deposit_amount, 10, "Wrong deposit amount");
+        assert_eq!(voucher[0].paid_amount, 1, "Wrong paid amount");
+        assert_eq!(voucher[0].used_by, Some(predecessor.clone()), "Wrong used_by");
+        assert_eq!(voucher[0].expire_date, None, "Wrong expire_date");
+    }
+
+    #[test]
+    #[should_panic(expected = "Voucher expired")]
+    fn transfer_expired() {
+        let context = get_context(false);
+        testing_env!(context.clone());
+
+        let mut contract = VoucherContract::default();
+        println!("{}", context.block_timestamp);
+        let expired_date: Option<Timestamp> = Some(context.block_timestamp - 1);
+        let (private_key, id) = _add_voucher_internal(expired_date);
+        let predecessor = context.predecessor_account_id;
+
+        contract.transfer(private_key, id, predecessor.clone(), String::from("1"));
     }
 }
 
