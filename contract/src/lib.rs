@@ -7,7 +7,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 
 setup_alloc!();
 
-const MAX_DEPOSIT: u128 = 10_000_000_000_000_000_000_000_000;
+const MAX_DEPOSIT: u128 = 20_000_000_000_000_000_000_000_000;
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
@@ -67,9 +67,9 @@ impl VoucherContract {
     #[payable]
     pub fn add_voucher(&mut self, hash: String, id: String, expire_date: Option<Timestamp>) {
         assert!(env::attached_deposit() > 0, "You should attach some Deposit");
-        assert!(env::attached_deposit() <= MAX_DEPOSIT, "Please attach less than 10 NEAR");
-        assert_eq!(hash.len(), 64, "Wrong Hash value");
-        assert_eq!(id.len(), 12, "Wrong ID value");
+        assert!(env::attached_deposit() <= MAX_DEPOSIT, "Please attach less than 20 NEAR");
+        assert_eq!(hash.len(), 64, "Error: Wrong Hash value");
+        assert_eq!(id.len(), 12, "Error: Wrong ID value");
 
         let mut user_vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
             Some(vouchers) => vouchers,
@@ -88,7 +88,7 @@ impl VoucherContract {
     pub fn remove_voucher(&mut self, id: String) {
         let mut user_vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
             Some(vouchers) => vouchers,
-            None => panic!("User vouchers not found"),
+            None => panic!("Error: User vouchers not found"),
         };
 
         let voucher = user_vouchers.iter().find(|v| *v.id == id).unwrap();
@@ -118,15 +118,15 @@ impl VoucherContract {
         // Get voucher by hash
         let hashed_key = env::sha256(key.as_bytes());
         let hashed_key_hex = hex::encode(&hashed_key);
-        let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("Voucher not found");
+        let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("Error: Voucher not found");
 
         // Check voucher payment ability
-        assert!(voucher.used_by.is_none(), "Voucher already used");
-        assert!(voucher.deposit_amount >= pay_amount, "Can't get this amount from the voucher");
+        assert!(voucher.used_by.is_none(), "Error: Voucher already used");
+        assert!(voucher.deposit_amount >= pay_amount, "Error: Can't get this amount from the voucher");
         log!("timestamp: {:?} ", voucher.expire_date);
         log!("block_timestamp: {}",env::block_timestamp());
         match voucher.expire_date {
-            Some(timestamp) => assert!(timestamp >= env::block_timestamp(), "Voucher expired"),
+            Some(timestamp) => assert!(timestamp >= env::block_timestamp(), "Error: Voucher expired"),
             None => (),
         };
 
