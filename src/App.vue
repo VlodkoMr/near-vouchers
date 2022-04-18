@@ -20,7 +20,7 @@ window.networkId = nearConfig.networkId
 
 export default {
   created() {
-    document.title = "offline-payment-rust"
+    document.title = "NEAR Payment Vouchers"
   },
   name: "App",
   components: {

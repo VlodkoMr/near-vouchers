@@ -169,6 +169,30 @@ body {
     padding: 32px 22px;
 }
 
+select.custom-select {
+    padding: 5px 10px;
+    border-color: #CCC;
+    border-radius: 5px;
+    display: block;
+    width: 100%;
+    outline: none;
+    height: 36px;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.input-counter {
+    width: 40px;
+    text-align: center;
+    font-size: 22px;
+    border: 1px solid #CCC;
+    border-radius: 3px;
+    margin-left: 3px;
+    margin-right: 3px;
+}
+
 @media all and (max-width: 1200px) {
     .one-voucher .gift-vertical img, .one-voucher .gift-vertical:after {
         display: none;

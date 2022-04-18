@@ -55,22 +55,45 @@
 
           <div class="one-voucher">
             <form @submit.prevent="addVoucher" class="row">
-              <div class="col-6 offset-3">
+              <div class="offset-1 col-10">
                 <div class="additional-border"></div>
                 <h4 class="text-center text-uppercase mb-3">
-                  New Voucher
+                  ADD
+                  <input type="text" maxlength="2" placeholder="1"
+                         v-model="createCount" class="input-counter"/>
+                  Voucher{{ createCount > 1 ? "s" : "" }}
                 </h4>
-                <div class="mb-3">
-                  <label class="form-check-label mb-1">Expire Date</label>
-                  <b-form-input type="date" placeholder="Expire date" v-model="voucherExpire"></b-form-input>
+                <div class="row mb-2">
+                  <div class="col-5 text-right">
+                    <label class="form-check-label text-right pt-1">Payment Type<sup>*</sup></label>
+                  </div>
+                  <div class="col-6">
+                    <b-form-select v-model="voucherType" :options="voucherTypeOptions"></b-form-select>
+                  </div>
                 </div>
-                <label class="form-check-label mb-1">NEAR Amount<sup>*</sup></label>
-                <b-input-group>
-                  <b-form-input type="number" required min="0.1" max="10" step="0.1" v-model="voucherDeposit"></b-form-input>
-                  <b-input-group-append>
-                    <b-button variant="primary" type="submit">ADD</b-button>
-                  </b-input-group-append>
-                </b-input-group>
+                <div class="row mb-2">
+                  <div class="col-5 text-right">
+                    <label class="form-check-label pt-2">{{ voucherType === 'static' ? "Expire Date" : "Full unlock Date" }}
+                    </label>
+                  </div>
+                  <div class="col-6">
+                    <b-form-input type="date" placeholder="Expire Date" v-model="voucherExpire"></b-form-input>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-5 text-right">
+                    <label class="form-check-label pt-2">NEAR Amount<sup>*</sup></label>
+                  </div>
+                  <div class="col-6">
+                    <b-input-group>
+                      <b-form-input type="number" required min="0.1" max="10" step="0.1" v-model="voucherDeposit"></b-form-input>
+                      <b-input-group-append>
+                        <b-button variant="primary" type="submit">ADD</b-button>
+                      </b-input-group-append>
+                    </b-input-group>
+                  </div>
+                </div>
+
               </div>
             </form>
           </div>
@@ -96,7 +119,6 @@ export default {
       if (!localStorage.getItem('app-private-keys')) {
         localStorage.setItem('app-private-keys', JSON.stringify({}));
       }
-
       this.getVouchers();
     }
   },
@@ -109,7 +131,13 @@ export default {
       is_ready: false,
       voucherDeposit: null,
       voucherExpire: null,
+      createCount: 1,
+      voucherType: 'static',
       vouchers: [],
+      voucherTypeOptions: [
+        {value: 'static', text: 'Unlocked'},
+        {value: 'linear', text: 'Linear Unlock'},
+      ],
     }
   },
   computed: {
@@ -134,13 +162,17 @@ export default {
     },
 
     async addVoucher() {
+      let createCount = parseInt(self.createCount) || 1;
+
       if (this.voucherDeposit > 0) {
-        let expire_date = null;
+        let expireDate = null;
         if (this.voucherExpire) {
           // convert date to blockchain timestamp
-          expire_date = Date.parse(this.voucherExpire) * 1000000;
+          expireDate = Date.parse(this.voucherExpire) * 1000000;
         }
         let keys = JSON.parse(localStorage.getItem('app-private-keys'));
+
+
         const newId = this.randomStr(12);
         keys[newId] = this.randomStr(64);
         localStorage.setItem('app-private-keys', JSON.stringify(keys));
@@ -152,7 +184,7 @@ export default {
           await window.contract.add_voucher({
             id: newId,
             hash,
-            expire_date
+            expire_date: expireDate
           }, GAS, DEPOSIT);
         } catch (e) {
           alert("Something went wrong!");
