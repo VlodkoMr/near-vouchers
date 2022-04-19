@@ -193,8 +193,31 @@ select.custom-select {
     margin-right: 3px;
 }
 
+.pay-voucher {
+    width: 420px;
+}
+
+.fw-bold {
+    font-weight: bold;
+}
+
 @media all and (max-width: 1200px) {
     .one-voucher .gift-vertical img, .one-voucher .gift-vertical:after {
         display: none;
+    }
+}
+
+@media all and (max-width: 1000px) {
+    main {
+        max-width: 600px;
+        margin: auto;
+    }
+
+    .vouchers {
+        display: block;
+    }
+
+    .one-voucher {
+        margin-bottom: 50px;
     }
 }

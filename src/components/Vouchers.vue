@@ -17,14 +17,14 @@
             <div class="additional-border"></div>
             <div class="voucher-inner">
               <div class="canvas text-center">
-                <qrcode-vue :value="getUrl(voucher.id)" :size="220" level="H"/>
+                <qrcode-vue :value="getUrl(voucher.id)" :size="220" level="H" />
               </div>
               <div class="gift-shadow"></div>
               <div class="gift-vertical">
                 <img src="../assets/bn-1.svg" alt="">
               </div>
               <div class="black-bg">
-                <input type="hidden" :id="'clone-'+voucher.id" readonly :value="getUrl(voucher.id)"/>
+                <input type="hidden" :id="'clone-'+voucher.id" readonly :value="getUrl(voucher.id)" />
                 <img src="../assets/delete.png"
                      alt="remove"
                      title="remove"
@@ -36,7 +36,9 @@
                     {{ toNearAmount(voucher.deposit_amount) }} NEAR
                   </span>
                   <small class="used-label" v-if="!voucher.used_by && voucher.expire_date">
-                    Expire: {{ dateFormat(voucher.expire_date) }}
+                    <small v-if="voucher.payment_type === 'static'">Expire:</small>
+                    <small v-if="voucher.payment_type === 'linear'">Full Unlock:</small>
+                    {{ dateFormat(voucher.expire_date) }}
                   </small>
 
                   <small class="used-label" v-if="voucher.used_by">Used By: {{ voucher.used_by }}</small>
@@ -58,9 +60,9 @@
               <div class="offset-1 col-10">
                 <div class="additional-border"></div>
                 <h4 class="text-center text-uppercase mb-3">
-                  ADD
+                  Create
                   <input type="text" maxlength="2" placeholder="1"
-                         v-model="createCount" class="input-counter"/>
+                         v-model="createCount" class="input-counter" />
                   Voucher{{ createCount > 1 ? "s" : "" }}
                 </h4>
                 <div class="row mb-2">
@@ -73,7 +75,8 @@
                 </div>
                 <div class="row mb-2">
                   <div class="col-5 text-right">
-                    <label class="form-check-label pt-2">{{ voucherType === 'static' ? "Expire Date" : "Full unlock Date" }}
+                    <label class="form-check-label pt-2">
+                      {{ voucherType === 'static' ? "Expire Date" : "Full unlock Date" }}<sup v-if="voucherType !== 'static'">*</sup>
                     </label>
                   </div>
                   <div class="col-6">
@@ -88,7 +91,7 @@
                     <b-input-group>
                       <b-form-input type="number" required min="0.1" max="10" step="0.1" v-model="voucherDeposit"></b-form-input>
                       <b-input-group-append>
-                        <b-button variant="primary" type="submit">ADD</b-button>
+                        <b-button variant="primary" type="submit">CREATE</b-button>
                       </b-input-group-append>
                     </b-input-group>
                   </div>
@@ -111,6 +114,7 @@ import Big from "big.js";
 import sha256 from 'crypto-js/sha256';
 import QrcodeVue from 'qrcode.vue';
 import Header from "./Header";
+import { toNearAmount as toNearAmountUtil, dateFormat as dateFormatUtil, isExpired as isExpiredUtil } from '../utils';
 
 export default {
   name: "Vouchers",
@@ -135,15 +139,15 @@ export default {
       voucherType: 'static',
       vouchers: [],
       voucherTypeOptions: [
-        {value: 'static', text: 'Unlocked'},
-        {value: 'linear', text: 'Linear Unlock'},
+        { value: 'static', text: 'Unlocked' },
+        { value: 'linear', text: 'Linear Unlock' },
       ],
     }
   },
   computed: {
     isSignedIn() {
       return window.walletConnection ? window.walletConnection.isSignedIn() : false
-    },
+    }
   },
   methods: {
     getVouchers() {
@@ -162,52 +166,57 @@ export default {
     },
 
     async addVoucher() {
-      let createCount = parseInt(self.createCount) || 1;
+      let createCount = parseInt(this.createCount) || 1;
 
-      if (this.voucherDeposit > 0) {
-        let expireDate = null;
-        if (this.voucherExpire) {
-          // convert date to blockchain timestamp
-          expireDate = Date.parse(this.voucherExpire) * 1000000;
-        }
-        let keys = JSON.parse(localStorage.getItem('app-private-keys'));
-        let totalDeposit = this.voucherDeposit * createCount;
-
-        let hashList = [];
-        let idList = [];
-        for (let i = 0; i < createCount; i++) {
-          const newId = this.randomStr(12);
-          keys[newId] = this.randomStr(64);
-          localStorage.setItem('app-private-keys', JSON.stringify(keys));
-          hashList.push(sha256(keys[newId]).toString())
-          idList.push(newId);
-        }
-
-        const GAS = Big(300).times(10 ** 12).toFixed();
-        const DEPOSIT = Big(totalDeposit).times(10 ** 24).toFixed();
-        try {
-          await window.contract.add_voucher({
-            id_list: idList,
-            hash_list: hashList,
-            expire_date: expireDate,
-            payment_type: self.voucherType
-          }, GAS, DEPOSIT);
-        } catch (e) {
-          alert("Something went wrong!");
-          throw e //re-throw
-        } finally {
-          console.log('added');
-          this.getVouchers();
-        }
-      } else {
-        alert("Please specify deposit");
+      if (this.voucherDeposit <= 0 || createCount < 1) {
+        alert("Please specify Deposit");
+        return false;
       }
+
+      if (this.voucherType !== 'static' && !this.voucherExpire) {
+        alert("Please specify Full unlock Date");
+        return false;
+      }
+
+      let expireDate = null;
+      if (this.voucherExpire) {
+        expireDate = Date.parse(this.voucherExpire) * 1000000;
+      }
+      let keys = JSON.parse(localStorage.getItem('app-private-keys'));
+      let totalDeposit = this.voucherDeposit * createCount;
+      let hashList = [];
+      let idList = [];
+
+      for (let i = 0; i < createCount; i++) {
+        const newId = this.randomStr(12);
+        keys[newId] = this.randomStr(64);
+        localStorage.setItem('app-private-keys', JSON.stringify(keys));
+        hashList.push(sha256(keys[newId]).toString())
+        idList.push(newId);
+      }
+
+      const GAS = Big(300).times(10 ** 12).toFixed();
+      const DEPOSIT = Big(totalDeposit).times(10 ** 24).toFixed();
+      try {
+        await window.contract.add_voucher({
+          id_list: idList,
+          hash_list: hashList,
+          expire_date: expireDate,
+          payment_type: this.voucherType
+        }, GAS, DEPOSIT);
+      } catch (e) {
+        alert("Something went wrong!");
+        throw e //re-throw
+      } finally {
+        this.getVouchers();
+      }
+
     },
 
     async removeVoucher(id) {
       if (confirm("Please confirm voucher removing. The balance will be refunded to your wallet.")) {
         try {
-          await window.contract.remove_voucher({id});
+          await window.contract.remove_voucher({ id });
         } catch (e) {
           alert("Something went wrong!");
           throw e //re-throw
@@ -218,6 +227,18 @@ export default {
       }
     },
 
+    toNearAmount(amount) {
+      return toNearAmountUtil(amount);
+    },
+
+    dateFormat(date) {
+      return dateFormatUtil(date);
+    },
+
+    isExpired(timestamp) {
+      return isExpiredUtil(timestamp);
+    },
+
     getUrl(id) {
       let keys = JSON.parse(localStorage.getItem('app-private-keys'));
       return window.location.origin + `/?user=${window.accountId}&id=${id}#${keys[id]}`;
@@ -226,10 +247,6 @@ export default {
     isValidVoucher(id) {
       let keys = JSON.parse(localStorage.getItem('app-private-keys'));
       return keys[id] !== undefined;
-    },
-
-    toNearAmount(value) {
-      return Big(value).div(10 ** 24).toFixed();
     },
 
     copyURL(id) {
@@ -250,17 +267,6 @@ export default {
       return result;
     },
 
-    dateFormat(timestamp) {
-      const date = new Date(timestamp / 1000000);
-      return new Intl.DateTimeFormat().format(date);
-    },
-
-    isExpired(timestamp) {
-      if (timestamp) {
-        const date = new Date(timestamp / 1000000);
-        return new Date() > date;
-      }
-    },
   },
 }
 </script>

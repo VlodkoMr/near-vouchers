@@ -1,5 +1,6 @@
 import {connect, Contract, keyStores, WalletConnection} from 'near-api-js'
 import getConfig from './config'
+import Big from 'big.js';
 
 const nearConfig = getConfig('development')
 
@@ -18,7 +19,7 @@ export async function initContract() {
   // Initializing our contract APIs by contract name and configuration
   window.contract = await new Contract(window.walletConnection.account(), nearConfig.contractName, {
     // View methods are read only. They don't modify the state, but usually return some value.
-    viewMethods: ['user_vouchers'],
+    viewMethods: ['user_vouchers', 'voucher_info'],
     // Change methods can modify the state. But you don't receive the returned value when called.
     changeMethods: ['add_voucher', 'remove_voucher', 'transfer'],
   })
@@ -36,4 +37,21 @@ export function login() {
   // This works by creating a new access key for the user's account and storing
   // the private key in localStorage.
   window.walletConnection.requestSignIn(nearConfig.contractName)
+}
+
+export const toNearAmount = (value) => {
+  return Big(value).div(10 ** 24).toFixed();
+}
+
+
+export const dateFormat = (timestamp) => {
+  const date = new Date(timestamp / 1000000);
+  return new Intl.DateTimeFormat().format(date);
+}
+
+export const isExpired = (timestamp) => {
+  if (timestamp) {
+    const date = new Date(timestamp / 1000000);
+    return new Date() > date;
+  }
 }

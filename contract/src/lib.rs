@@ -119,7 +119,17 @@ impl VoucherContract {
         }
     }
 
-    pub fn transfer(&mut self, key: String, id: String, account_id: String, withdraw_amount: Option<U128>) {
+    pub fn voucher_info(&self, id: String, account_id: String) -> Voucher {
+        let user_vouchers = match self.vouchers.get(&account_id) {
+            Some(vouchers) => vouchers,
+            None => panic!("Voucher not exists"),
+        };
+        let mut voucher = user_vouchers.iter().find(|v| *v.id == id).expect("Voucher not found");
+        voucher.hash = String::new();
+        voucher
+    }
+
+    pub fn transfer(&mut self, key: String, id: String, account_id: String, withdraw_amount: Option<U128>) -> U128 {
         assert_eq!(key.len(), 64, "Wrong Hash value");
         assert_eq!(id.len(), 12, "Wrong ID value");
 
@@ -137,7 +147,7 @@ impl VoucherContract {
         log!("timestamp: {:?} ", voucher.expire_date);
         log!("block_timestamp: {}", env::block_timestamp());
 
-        if voucher.used_by.is_none() || voucher.used_by == env::predecessor_account_id() {
+        if voucher.used_by.is_none() || voucher.used_by == Some(env::predecessor_account_id()) {
             let mut withdraw_amount: u128 = match withdraw_amount {
                 Some(amount) => amount.0,
                 None => 0,
@@ -147,13 +157,13 @@ impl VoucherContract {
                     Some(timestamp) => assert!(timestamp >= env::block_timestamp(), "Voucher expired"),
                     None => (),
                 };
-                assert_eq!(voucher.paid_amount, 0, "Voucher already used");
+                assert!(voucher.paid_amount < 1, "Voucher already used");
                 withdraw_amount = voucher.deposit_amount;
             } else {
                 assert!(withdraw_amount > 0, "Please specify withdraw amount");
-                let unlocked_amount = 0;
-                voucher.create_date
-                voucher.expire_date
+                // let unlocked_amount = 0;
+                // voucher.create_date
+                // voucher.expire_date
             }
 
             // Remove previous voucher
@@ -167,6 +177,7 @@ impl VoucherContract {
 
             // Send payment
             Promise::new(env::predecessor_account_id()).transfer(withdraw_amount);
+            return withdraw_amount.into();
         } else {
             panic!("You can't use this voucher");
         }
