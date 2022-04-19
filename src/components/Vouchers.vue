@@ -171,19 +171,24 @@ export default {
           expireDate = Date.parse(this.voucherExpire) * 1000000;
         }
         let keys = JSON.parse(localStorage.getItem('app-private-keys'));
+        let totalDeposit = this.voucherDeposit * createCount;
 
+        let hashList = [];
+        let idList = [];
+        for (let i = 0; i < createCount; i++) {
+          const newId = this.randomStr(12);
+          keys[newId] = this.randomStr(64);
+          localStorage.setItem('app-private-keys', JSON.stringify(keys));
+          hashList.push(sha256(keys[newId]).toString())
+          idList.push(newId);
+        }
 
-        const newId = this.randomStr(12);
-        keys[newId] = this.randomStr(64);
-        localStorage.setItem('app-private-keys', JSON.stringify(keys));
-
-        const hash = sha256(keys[newId]).toString();
         const GAS = Big(300).times(10 ** 12).toFixed();
-        const DEPOSIT = Big(this.voucherDeposit).times(10 ** 24).toFixed();
+        const DEPOSIT = Big(totalDeposit).times(10 ** 24).toFixed();
         try {
           await window.contract.add_voucher({
-            id: newId,
-            hash,
+            id_list: idList,
+            hash_list: hashList,
             expire_date: expireDate
           }, GAS, DEPOSIT);
         } catch (e) {

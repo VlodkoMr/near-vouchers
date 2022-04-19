@@ -7,7 +7,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 
 setup_alloc!();
 
-const MAX_DEPOSIT: u128 = 20_000_000_000_000_000_000_000_000;
+const MAX_DEPOSIT: u128 = 1_000_000_000_000_000_000_000_000_000;
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
@@ -65,24 +65,32 @@ impl VoucherContract {
     }
 
     #[payable]
-    pub fn add_voucher(&mut self, hash: String, id: String, expire_date: Option<Timestamp>) {
+    pub fn add_voucher(&mut self, hash_list: Vec<String>, id_list: Vec<String>, expire_date: Option<Timestamp>) {
+        let owner_id = env::predecessor_account_id();
         assert!(env::attached_deposit() > 0, "You should attach some Deposit");
-        assert!(env::attached_deposit() <= MAX_DEPOSIT, "Please attach less than 20 NEAR");
-        assert_eq!(hash.len(), 64, "Error: Wrong Hash value");
-        assert_eq!(id.len(), 12, "Error: Wrong ID value");
+        assert!(env::attached_deposit() <= MAX_DEPOSIT, "Please attach less than 1000 NEAR");
+
+        log!("hash_list {}", hash_list[0]);
+        log!("id_list {}", id_list[0]);
 
         let mut user_vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
             Some(vouchers) => vouchers,
             None => UnorderedSet::new(StorageKeys::AccountVouchers),
         };
 
-        user_vouchers.insert(&Voucher {
-            hash,
-            id,
-            expire_date,
-            ..Voucher::default()
-        });
-        self.vouchers.insert(&env::predecessor_account_id(), &user_vouchers);
+        for (index, id) in id_list.into_iter().enumerate() {
+            let hash = hash_list[index].to_string();
+            assert_eq!(id.len(), 12, "Error: Wrong ID value");
+            assert_eq!(hash.len(), 64, "Error: Wrong Hash value");
+
+            user_vouchers.insert(&Voucher {
+                hash: hash.to_string(),
+                id: id.to_string(),
+                expire_date,
+                ..Voucher::default()
+            });
+            self.vouchers.insert(&owner_id, &user_vouchers);
+        }
     }
 
     pub fn remove_voucher(&mut self, id: String) {
