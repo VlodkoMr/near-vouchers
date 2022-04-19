@@ -189,7 +189,8 @@ export default {
           await window.contract.add_voucher({
             id_list: idList,
             hash_list: hashList,
-            expire_date: expireDate
+            expire_date: expireDate,
+            payment_type: self.voucherType
           }, GAS, DEPOSIT);
         } catch (e) {
           alert("Something went wrong!");

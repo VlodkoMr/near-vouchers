@@ -4,6 +4,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::BorshStorageKey;
 use near_sdk::collections::{LookupMap, UnorderedSet};
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::json_types::U128;
 
 setup_alloc!();
 
@@ -19,6 +20,7 @@ pub enum StorageKeys {
 #[serde(crate = "near_sdk::serde")]
 pub struct Voucher {
     id: String,
+    payment_type: String,
     deposit_amount: u128,
     paid_amount: u128,
     create_date: Timestamp,
@@ -31,6 +33,7 @@ impl Default for Voucher {
     fn default() -> Self {
         Self {
             id: String::new(),
+            payment_type: String::new(),
             deposit_amount: env::attached_deposit(),
             paid_amount: 0,
             create_date: env::block_timestamp(),
@@ -65,14 +68,14 @@ impl VoucherContract {
     }
 
     #[payable]
-    pub fn add_voucher(&mut self, hash_list: Vec<String>, id_list: Vec<String>, expire_date: Option<Timestamp>) {
-        let owner_id = env::predecessor_account_id();
+    pub fn add_voucher(&mut self, hash_list: Vec<String>, id_list: Vec<String>, expire_date: Option<Timestamp>, payment_type: String) {
         assert!(env::attached_deposit() > 0, "You should attach some Deposit");
         assert!(env::attached_deposit() <= MAX_DEPOSIT, "Please attach less than 1000 NEAR");
+        if payment_type != "static" && expire_date.is_none() {
+            panic!("Specify unlock date");
+        }
 
-        log!("hash_list {}", hash_list[0]);
-        log!("id_list {}", id_list[0]);
-
+        let owner_id = env::predecessor_account_id();
         let mut user_vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
             Some(vouchers) => vouchers,
             None => UnorderedSet::new(StorageKeys::AccountVouchers),
@@ -86,6 +89,7 @@ impl VoucherContract {
             user_vouchers.insert(&Voucher {
                 hash: hash.to_string(),
                 id: id.to_string(),
+                payment_type: payment_type.to_string(),
                 expire_date,
                 ..Voucher::default()
             });
@@ -101,59 +105,70 @@ impl VoucherContract {
 
         let voucher = user_vouchers.iter().find(|v| *v.id == id).unwrap();
 
-        // Return voucher balance to the owner (if there was no payments)
-        if voucher.used_by.is_none() {
-            Promise::new(env::predecessor_account_id()).transfer(voucher.deposit_amount);
-        }
+        // Return voucher balance to the owner (if there was no lock or voucher already used)
+        if voucher.used_by.is_none() || voucher.deposit_amount == voucher.paid_amount {
+            if voucher.deposit_amount != voucher.paid_amount {
+                Promise::new(env::predecessor_account_id()).transfer(voucher.deposit_amount);
+            }
 
-        // Remove voucher
-        user_vouchers.remove(&voucher);
-        self.vouchers.insert(&env::predecessor_account_id(), &user_vouchers);
+            // Remove voucher
+            user_vouchers.remove(&voucher);
+            self.vouchers.insert(&env::predecessor_account_id(), &user_vouchers);
+        } else {
+            panic!("Voucher locked and can't be removed");
+        }
     }
 
-    pub fn transfer(&mut self, key: String, id: String, account_id: String, pay_amount: String) {
-        let pay_amount = pay_amount.parse().unwrap();
+    pub fn transfer(&mut self, key: String, id: String, account_id: String, withdraw_amount: Option<U128>) {
         assert_eq!(key.len(), 64, "Wrong Hash value");
         assert_eq!(id.len(), 12, "Wrong ID value");
-        assert!(pay_amount > 0, "Wrong Payment amount");
 
         // Get all user vouchers
         let mut user_vouchers = match self.vouchers.get(&account_id) {
             Some(vouchers) => vouchers,
-            None => panic!("Voucher not found!"),
+            None => panic!("Voucher not exists"),
         };
 
         // Get voucher by hash
         let hashed_key = env::sha256(key.as_bytes());
         let hashed_key_hex = hex::encode(&hashed_key);
-        let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("Error: Voucher not found");
+        let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("Voucher not found");
 
-        // Check voucher payment ability
-        assert!(voucher.used_by.is_none(), "Error: Voucher already used");
-        assert!(voucher.deposit_amount >= pay_amount, "Error: Can't get this amount from the voucher");
         log!("timestamp: {:?} ", voucher.expire_date);
-        log!("block_timestamp: {}",env::block_timestamp());
-        match voucher.expire_date {
-            Some(timestamp) => assert!(timestamp >= env::block_timestamp(), "Error: Voucher expired"),
-            None => (),
-        };
+        log!("block_timestamp: {}", env::block_timestamp());
 
-        // Remove previous voucher
-        user_vouchers.remove(&voucher);
+        if voucher.used_by.is_none() || voucher.used_by == env::predecessor_account_id() {
+            let mut withdraw_amount: u128 = match withdraw_amount {
+                Some(amount) => amount.0,
+                None => 0,
+            };
+            if voucher.payment_type == "static" {
+                match voucher.expire_date {
+                    Some(timestamp) => assert!(timestamp >= env::block_timestamp(), "Voucher expired"),
+                    None => (),
+                };
+                assert_eq!(voucher.paid_amount, 0, "Voucher already used");
+                withdraw_amount = voucher.deposit_amount;
+            } else {
+                assert!(withdraw_amount > 0, "Please specify withdraw amount");
+                let unlocked_amount = 0;
+                voucher.create_date
+                voucher.expire_date
+            }
 
-        // Add updated voucher
-        voucher.used_by = Some(env::predecessor_account_id());
-        voucher.paid_amount = pay_amount;
-        user_vouchers.insert(&voucher);
-        self.vouchers.insert(&account_id, &user_vouchers);
+            // Remove previous voucher
+            user_vouchers.remove(&voucher);
 
-        // Send payment
-        Promise::new(env::predecessor_account_id()).transfer(pay_amount);
+            // Add updated voucher
+            voucher.used_by = Some(env::predecessor_account_id());
+            voucher.paid_amount = withdraw_amount;
+            user_vouchers.insert(&voucher);
+            self.vouchers.insert(&account_id, &user_vouchers);
 
-        // Send rest balance to the owner
-        let rest_amount = voucher.deposit_amount - pay_amount;
-        if rest_amount > 0 {
-            Promise::new(account_id).transfer(rest_amount);
+            // Send payment
+            Promise::new(env::predecessor_account_id()).transfer(withdraw_amount);
+        } else {
+            panic!("You can't use this voucher");
         }
     }
 }
