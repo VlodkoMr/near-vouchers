@@ -6,7 +6,7 @@
       <h1 class="text-center">Payment</h1>
 
       <b-row class="text-center mt-3" v-if="!isPaymentLoader && !paymentSuccess">
-        <b-col lg="4" class="m-auto">
+        <b-col lg="6" class="m-auto">
           <p><b>Take payment from Voucher</b></p>
           <div class="one-voucher pay-voucher">
             <form @submit.prevent="transfer" class="row">
@@ -38,10 +38,10 @@
                     Claimed: {{ toNearAmount(voucher.paid_amount) }} NEAR
                   </div>
                   <div>
-                    You can Claim: {{ linearClaimAmount() }} NEAR
+                    You can Claim: {{ parseFloat(toNearAmount(voucher.unlocked)).toFixed(6) }} NEAR
                   </div>
                   <div class="mt-3">
-                    <b-button variant="primary" type="submit" class="fw-bold text-uppercase" :disabled="linearClaimAmount() <=0">Claim</b-button>
+                    <b-button variant="primary" type="submit" class="fw-bold text-uppercase" :disabled="voucher.unlocked <= 0">Claim</b-button>
                   </div>
                 </div>
 
@@ -109,12 +109,13 @@ export default {
     async voucherInfo() {
       this.isReady = false;
       try {
-        this.voucher = await window.contract.voucher_info({
+        let voucherData = await window.contract.voucher_info({
           id: this.id,
           account_id: this.userId,
         });
+        this.voucher = voucherData[0];
+        this.voucher.unlocked = voucherData[1];
         this.isReady = true;
-        console.log('voucher', this.voucher);
       } catch (e) {
         console.log('err')
       }
@@ -129,10 +130,6 @@ export default {
 
     isExpired(timestamp) {
       return isExpiredUtil(timestamp) || this.voucher.paid_amount > 0;
-    },
-
-    linearClaimAmount() {
-      return 0;
     },
 
     async transfer() {

@@ -74,6 +74,9 @@ impl VoucherContract {
         if payment_type != "static" && expire_date.is_none() {
             panic!("Specify unlock date");
         }
+        if expire_date.is_some() && expire_date.unwrap() <= env::block_timestamp() {
+            panic!("Wrong expire date");
+        }
 
         let owner_id = env::predecessor_account_id();
         let mut user_vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
@@ -119,17 +122,30 @@ impl VoucherContract {
         }
     }
 
-    pub fn voucher_info(&self, id: String, account_id: String) -> Voucher {
+    pub fn linear_claim_amount(&self, voucher: &Voucher) -> u128 {
+        if voucher.payment_type == "linear" {
+            let time_diff = u128::from((voucher.expire_date.unwrap() - voucher.create_date) / 1_000_000_000);
+            let one_sec_reward = voucher.deposit_amount / time_diff;
+            let seconds_from_start = u128::from((env::block_timestamp() - voucher.create_date) / 1_000_000_000);
+            let unlocked = seconds_from_start * one_sec_reward;
+            return unlocked - voucher.paid_amount;
+        }
+        voucher.deposit_amount - voucher.paid_amount
+    }
+
+    pub fn voucher_info(&self, id: String, account_id: String) -> (Voucher, U128) {
         let user_vouchers = match self.vouchers.get(&account_id) {
             Some(vouchers) => vouchers,
             None => panic!("Voucher not exists"),
         };
         let mut voucher = user_vouchers.iter().find(|v| *v.id == id).expect("Voucher not found");
         voucher.hash = String::new();
-        voucher
+        let claimable = self.linear_claim_amount(&voucher);
+
+        (voucher, claimable.into())
     }
 
-    pub fn transfer(&mut self, key: String, id: String, account_id: String, withdraw_amount: Option<U128>) -> U128 {
+    pub fn transfer(&mut self, key: String, id: String, account_id: String) -> U128 {
         assert_eq!(key.len(), 64, "Wrong Hash value");
         assert_eq!(id.len(), 12, "Wrong ID value");
 
@@ -144,14 +160,8 @@ impl VoucherContract {
         let hashed_key_hex = hex::encode(&hashed_key);
         let mut voucher = user_vouchers.iter().find(|v| *v.hash == hashed_key_hex).expect("Voucher not found");
 
-        log!("timestamp: {:?} ", voucher.expire_date);
-        log!("block_timestamp: {}", env::block_timestamp());
-
         if voucher.used_by.is_none() || voucher.used_by == Some(env::predecessor_account_id()) {
-            let mut withdraw_amount: u128 = match withdraw_amount {
-                Some(amount) => amount.0,
-                None => 0,
-            };
+            let withdraw_amount;
             if voucher.payment_type == "static" {
                 match voucher.expire_date {
                     Some(timestamp) => assert!(timestamp >= env::block_timestamp(), "Voucher expired"),
@@ -160,10 +170,10 @@ impl VoucherContract {
                 assert!(voucher.paid_amount < 1, "Voucher already used");
                 withdraw_amount = voucher.deposit_amount;
             } else {
-                assert!(withdraw_amount > 0, "Please specify withdraw amount");
-                // let unlocked_amount = 0;
-                // voucher.create_date
-                // voucher.expire_date
+                withdraw_amount = self.linear_claim_amount(&voucher);
+                if withdraw_amount <= 0 {
+                    panic!("Error: Nothing to claim");
+                }
             }
 
             // Remove previous voucher
