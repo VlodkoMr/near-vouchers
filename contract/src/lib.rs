@@ -181,7 +181,7 @@ impl VoucherContract {
 
             // Add updated voucher
             voucher.used_by = Some(env::predecessor_account_id());
-            voucher.paid_amount = withdraw_amount;
+            voucher.paid_amount += withdraw_amount;
             user_vouchers.insert(&voucher);
             self.vouchers.insert(&account_id, &user_vouchers);
 
