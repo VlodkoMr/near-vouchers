@@ -35,7 +35,7 @@
                   </span>
                   <hr>
                   <div>
-                    Claimed: {{ toNearAmount(voucher.paid_amount) }} NEAR
+                    Claimed: {{ parseFloat(toNearAmount(voucher.paid_amount)).toFixed(6) }} NEAR
                   </div>
                   <div>
                     You can Claim: {{ parseFloat(toNearAmount(voucher.unlocked)).toFixed(6) }} NEAR
@@ -44,7 +44,6 @@
                     <b-button variant="primary" type="submit" class="fw-bold text-uppercase" :disabled="voucher.unlocked <= 0">Claim</b-button>
                   </div>
                 </div>
-
               </div>
             </form>
           </div>
@@ -56,8 +55,11 @@
         <b-col lg="5" md="6">
           <img src="../assets/success.png" alt="success" width="60">
           <p class="mt-3">
-            <b>You received {{ toNearAmount(paymentAmount) }} NEAR.</b>
+            <b>You received {{ parseFloat(toNearAmount(paymentAmount)).toFixed(6) }} NEAR.</b>
           </p>
+          <div class="mt-2">
+            <a class="btn btn-outline-secondary" href="/">Open my Payment Vouchers</a>
+          </div>
         </b-col>
         <b-col></b-col>
       </b-row>

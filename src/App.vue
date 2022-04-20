@@ -1,9 +1,9 @@
 <template>
   <div id="root">
-    <SignedOut v-show="!isSignedIn"/>
+    <SignedOut v-show="!isSignedIn" />
     <div v-show="isSignedIn">
-      <Vouchers v-show="!isPayment"/>
-      <VoucherPayment v-show="isPayment"/>
+      <Vouchers v-show="!isPayment" />
+      <VoucherPayment v-show="isPayment" />
     </div>
   </div>
 </template>

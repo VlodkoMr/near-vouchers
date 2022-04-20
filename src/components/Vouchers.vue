@@ -2,8 +2,11 @@
   <main>
     <Header></Header>
 
-    <div class="container-lg">
-      <h2 class="text-center mb-5">My Payment Vouchers</h2>
+    <div class="container-lg position-relative">
+      <button class="position-absolute rounded-circle border border-secondary print-btn" @click="print()">
+        <img src="../assets/print.svg" width="18" alt="">
+      </button>
+      <h2 class="text-center mb-5 page-title">My Payment Vouchers</h2>
 
       <div v-if="is_ready">
         <p v-if="!vouchers.length" class="text-center">
@@ -32,17 +35,24 @@
                      @click="removeVoucher(voucher.id)">
 
                 <h4 class="text-center near-amount">
-                  <span :class="{'is-used': voucher.used_by}">
+                  <span :class="{'is-used': voucher.used_by && voucher.payment_type === 'static'}">
                     {{ toNearAmount(voucher.deposit_amount) }} NEAR
                   </span>
                   <small class="used-label" v-if="!voucher.used_by && voucher.expire_date">
-                    <small v-if="voucher.payment_type === 'static'">Expire:</small>
+                    <small v-if="voucher.payment_type === 'static'">Expire<u class="text-decoration-none" v-if="isExpired(voucher.expire_date)">d</u>:</small>
                     <small v-if="voucher.payment_type === 'linear'">Full Unlock:</small>
                     {{ dateFormat(voucher.expire_date) }}
                   </small>
 
-                  <small class="used-label" v-if="voucher.used_by">Used By: {{ voucher.used_by }}</small>
-                  <small class="used-label" v-if="voucher.paid_amount">Paid: {{ toNearAmount(voucher.paid_amount) }} NEAR</small>
+                  <small class="used-label" v-if="voucher.used_by">
+                    <small>Unlocked by: {{ voucher.used_by }}</small>
+                  </small>
+                  <small class="used-label" v-if="voucher.paid_amount">
+                    <b v-if="voucher.payment_type === 'static'">Claimed</b>
+                    <b v-if="voucher.payment_type !== 'static'">Claimed: <br>
+                      {{ parseFloat(toNearAmount(voucher.paid_amount)).toFixed(5) }} NEAR
+                    </b>
+                  </small>
                 </h4>
 
                 <div class="copy" @click="copyURL(voucher.id)">
@@ -55,7 +65,7 @@
             </div>
           </div>
 
-          <div class="one-voucher">
+          <div class="one-voucher add-voucher-form">
             <form @submit.prevent="addVoucher" class="row">
               <div class="offset-1 col-10">
                 <div class="additional-border"></div>
@@ -214,9 +224,10 @@ export default {
     },
 
     async removeVoucher(id) {
-      if (confirm("Please confirm voucher removing. The balance will be refunded to your wallet.")) {
+      if (confirm("Please confirm voucher removing.")) {
+        const GAS = Big(100).times(10 ** 12).toFixed();
         try {
-          await window.contract.remove_voucher({ id });
+          await window.contract.remove_voucher({ id }, GAS, 1);
         } catch (e) {
           alert("Something went wrong!");
           throw e //re-throw
@@ -266,6 +277,10 @@ export default {
       }
       return result;
     },
+
+    print() {
+      window.print();
+    }
 
   },
 }

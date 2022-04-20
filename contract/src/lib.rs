@@ -1,5 +1,5 @@
-use near_sdk::{AccountId, Promise, Timestamp};
-use near_sdk::{env, log, near_bindgen, setup_alloc};
+use near_sdk::{AccountId, assert_one_yocto, Promise, Timestamp};
+use near_sdk::{env, near_bindgen, setup_alloc};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::BorshStorageKey;
 use near_sdk::collections::{LookupMap, UnorderedSet};
@@ -71,6 +71,8 @@ impl VoucherContract {
     pub fn add_voucher(&mut self, hash_list: Vec<String>, id_list: Vec<String>, expire_date: Option<Timestamp>, payment_type: String) {
         assert!(env::attached_deposit() > 0, "You should attach some Deposit");
         assert!(env::attached_deposit() <= MAX_DEPOSIT, "Please attach less than 1000 NEAR");
+        let deposit_amount = env::attached_deposit() / id_list.len() as u128;
+
         if payment_type != "static" && expire_date.is_none() {
             panic!("Specify unlock date");
         }
@@ -94,13 +96,16 @@ impl VoucherContract {
                 id: id.to_string(),
                 payment_type: payment_type.to_string(),
                 expire_date,
+                deposit_amount,
                 ..Voucher::default()
             });
             self.vouchers.insert(&owner_id, &user_vouchers);
         }
     }
 
+    #[payable]
     pub fn remove_voucher(&mut self, id: String) {
+        assert_one_yocto();
         let mut user_vouchers = match self.vouchers.get(&env::predecessor_account_id()) {
             Some(vouchers) => vouchers,
             None => panic!("Error: User vouchers not found"),
@@ -111,7 +116,8 @@ impl VoucherContract {
         // Return voucher balance to the owner (if there was no lock or voucher already used)
         if voucher.used_by.is_none() || voucher.deposit_amount == voucher.paid_amount {
             if voucher.deposit_amount != voucher.paid_amount {
-                Promise::new(env::predecessor_account_id()).transfer(voucher.deposit_amount);
+                let payment_diff = voucher.deposit_amount - voucher.paid_amount;
+                Promise::new(env::predecessor_account_id()).transfer(payment_diff);
             }
 
             // Remove voucher
