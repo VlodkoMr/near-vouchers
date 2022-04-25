@@ -6,6 +6,8 @@
 .pnp.js
 /out
 /contract/target/**
+package-lock.json
+yarn.lock
 
 #keys
 /neardev
