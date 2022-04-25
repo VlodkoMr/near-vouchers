@@ -1,7 +1,10 @@
 Offline Payment Vouchers
 ==================
 
+Demo: https://payment-voucher.web3.in.ua
+
 Pay offline using NEAR Payment Vouchers:
+----------
 
 1. Login using your NEAR wallet.
 2. Generate payment vouchers (it will lock your funds in the smart contract).
@@ -81,6 +84,8 @@ Troubleshooting
 On Windows, if you're seeing an error containing `EPERM` it may be related to spaces in your path. Please
 see [this issue](https://github.com/zkat/npx/issues/209) for more details.
 
+
+[Demo]: https://payment-voucher.web3.in.ua/
 
 [Vue]: https://vuejs.org/
 
