@@ -108,6 +108,7 @@ export default {
     },
   },
   methods: {
+    // Get info about current payment voucher
     async voucherInfo() {
       this.isReady = false;
       try {
@@ -122,6 +123,7 @@ export default {
         console.log('err')
       }
     },
+
     toNearAmount(amount) {
       return toNearAmountUtil(amount);
     },
@@ -134,6 +136,7 @@ export default {
       return isExpiredUtil(timestamp) || this.voucher.paid_amount > 0;
     },
 
+    // Make transfer from voucher
     async transfer() {
       this.isPaymentLoader = true;
       let isError = false;

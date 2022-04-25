@@ -160,6 +160,7 @@ export default {
     }
   },
   methods: {
+    // Get user payment vouchers
     getVouchers() {
       this.is_ready = false;
       window.contract.user_vouchers({
@@ -175,6 +176,7 @@ export default {
       })
     },
 
+    // Add new voucher
     async addVoucher() {
       let createCount = parseInt(this.createCount) || 1;
 
@@ -223,6 +225,7 @@ export default {
 
     },
 
+    // Remove payment voucher
     async removeVoucher(id) {
       if (confirm("Please confirm voucher removing.")) {
         const GAS = Big(100).times(10 ** 12).toFixed();
@@ -250,16 +253,19 @@ export default {
       return isExpiredUtil(timestamp);
     },
 
+    // Get secret URL for voucher
     getUrl(id) {
       let keys = JSON.parse(localStorage.getItem('app-private-keys'));
       return window.location.origin + `/?user=${window.accountId}&id=${id}#${keys[id]}`;
     },
 
+    // Check voucher is valid
     isValidVoucher(id) {
       let keys = JSON.parse(localStorage.getItem('app-private-keys'));
       return keys[id] !== undefined;
     },
 
+    // Copy voucher URL
     copyURL(id) {
       const link = document.querySelector(`#clone-${id}`);
       link.setAttribute('type', 'text');
@@ -268,6 +274,7 @@ export default {
       link.setAttribute('type', 'hidden');
     },
 
+    // Generate random string for voucher keys
     randomStr(length) {
       let result = '';
       const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -278,6 +285,7 @@ export default {
       return result;
     },
 
+    // Print vouchers list
     print() {
       window.print();
     }
